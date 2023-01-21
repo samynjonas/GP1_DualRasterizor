@@ -46,7 +46,7 @@ void effect::SetWorldViewProjectionMatrix(const Matrix& matrix)
 	m_pMatWorldViewProjVariable->SetMatrix(reinterpret_cast<const float*>(&matrix));
 }
 
-void effect::SetDiffuseMap(Textures* pDiffuseTexture)
+void effect::SetDiffuseMap(DirectX_Texture* pDiffuseTexture)
 {
 	if (m_pDiffuseMapVariable)
 		m_pDiffuseMapVariable->SetResource(pDiffuseTexture->GetShaderResourceView());

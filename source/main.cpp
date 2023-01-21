@@ -57,14 +57,51 @@ int main(int argc, char* args[])
 				break;
 			case SDL_KEYUP:
 				//Test for a key
-				if (e.key.keysym.scancode == SDL_SCANCODE_F2)
+				if (e.key.keysym.scancode == SDL_SCANCODE_F1)
 				{
-					pRenderer->CycleFilteringMethods();
+					pRenderer->CycleRenderStyle();
 				}
-				else if (e.key.keysym.scancode == SDL_SCANCODE_F3)
+				else if (e.key.keysym.scancode == SDL_SCANCODE_F2)
 				{
 					pRenderer->EnableRotation();
 				}
+				else if (e.key.keysym.scancode == SDL_SCANCODE_F3)
+				{
+					pRenderer->ToggleFireFx();
+				}
+				else if (e.key.keysym.scancode == SDL_SCANCODE_F4)
+				{
+					pRenderer->CycleFilteringMethods();
+				}
+				else if (e.key.keysym.scancode == SDL_SCANCODE_F5)
+				{
+					pRenderer->CycleShadingMode();
+				}
+				else if (e.key.keysym.scancode == SDL_SCANCODE_F6)
+				{
+					pRenderer->ToggleNormalMap();
+				}
+				else if (e.key.keysym.scancode == SDL_SCANCODE_F7)
+				{
+					pRenderer->ToggleDepthBuffer();
+				}
+				else if (e.key.keysym.scancode == SDL_SCANCODE_F8)
+				{
+					pRenderer->ToggleBoundingBoxVisualization();
+				}
+				else if (e.key.keysym.scancode == SDL_SCANCODE_F9)
+				{
+					pRenderer->CycleCullModes();
+				}
+				else if (e.key.keysym.scancode == SDL_SCANCODE_F10)
+				{
+					pRenderer->ToggleUniformClearColor();
+				}
+				else if (e.key.keysym.scancode == SDL_SCANCODE_F11)
+				{
+					pRenderer->TogglePrintFPW();
+				}
+
 				break;
 			default: ;
 			}

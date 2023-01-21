@@ -9,6 +9,28 @@ namespace dae
 {
 	namespace Utils
 	{
+		static bool IsInTriangle(const Vector2& point, const Vector2& v0, const Vector2& v1, const Vector2& v2)
+		{
+			Vector2 edgeA{ v1 - v0 };
+			if (Vector2::Cross(edgeA, point - v0) < 0)
+			{
+				return false;
+			}
+
+			Vector2 edgeB{ v2 - v1 };
+			if (Vector2::Cross(edgeB, point - v1) < 0)
+			{
+				return false;
+			}
+
+			Vector2 edgeC{ v0 - v2 };
+			if (Vector2::Cross(edgeC, point - v2) < 0)
+			{
+				return false;
+			}
+			return true;
+		}
+
 		//Just parses vertices and indices
 #pragma warning(push)
 #pragma warning(disable : 4505) //Warning unreferenced local function
@@ -169,5 +191,22 @@ namespace dae
 #endif
 		}
 #pragma warning(pop)
+	}
+
+	namespace LightingUtils
+	{
+		inline ColorRGB Lambert(float kd, const ColorRGB& cd)
+		{
+			return cd * kd / PI;
+		}
+
+		inline ColorRGB Phong(float ks, float exp, const Vector3& l, const Vector3& v, const Vector3& n)
+		{
+			const Vector3 reflectVector(Vector3::Reflect(l, n));
+			const float reflectView{ Vector3::DotClamped(reflectVector, v) };
+			const float phong{ ks * powf(reflectView, exp) };
+
+			return ColorRGB{ phong, phong, phong };
+		}
 	}
 }

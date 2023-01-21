@@ -25,27 +25,86 @@ namespace dae
 		Renderer& operator=(Renderer&&) noexcept = delete;
 
 		void Update(const Timer* pTimer);
-		void Render() const;
+		void Render();
 
-		void CycleFilteringMethods();
-		void EnableRotation();
+		void CycleRenderStyle();				//F1
+		void EnableRotation();					//F2
+		void ToggleFireFx();					//F3
+		void CycleFilteringMethods();			//F4
+		void CycleShadingMode();				//F5
+		void ToggleNormalMap();					//F6
+		void ToggleDepthBuffer();				//F7
+		void ToggleBoundingBoxVisualization();	//F8
 
-	private:	
+		void CycleCullModes() {};					//F9
+		void ToggleUniformClearColor() {};			//F10
+		void TogglePrintFPW() {};					//F11
+
+	private:
+		enum class RenderingStyle
+		{
+			Software,
+			DirectX
+		};
+		RenderingStyle m_RenderStyle{ RenderingStyle::DirectX };
 
 		SDL_Window* m_pWindow{};
 
 		int m_Width{};
 		int m_Height{};
 
-		bool m_IsInitialized{ false };
-		
+		Camera m_Camera{};
 		bool m_Rotating{ true };
 
+		//Software Variables -----------------------------
+		bool m_ShowDepthBuffer{ false };
+		bool m_ShowBoundingBox{ false };
+		bool m_IsNormalMapEnabled{ true };
 
-		Camera m_Camera{};
+		enum class LightingMode
+		{
+			Combined,
+			ObservedArea,
+			Diffuse,
+			Specular
+		};
+		LightingMode m_LightingMode{ LightingMode::Combined };
+
+		SDL_Surface* m_pFrontBuffer{ nullptr };
+		SDL_Surface* m_pBackBuffer{ nullptr };
+		uint32_t* m_pBackBufferPixels{};
+
+		float* m_pDepthBufferPixels{};
+		const int TRIANGLE_SIDES{ 3 };
+
+		Mesh m_Mesh{};
+
+		//TODO Fix texture
+		Software_Texture* m_pTexture{};
+		Software_Texture* m_pNormalTexture{};
+		Software_Texture* m_pDiffuseTexture{};
+		Software_Texture* m_pSpecularTexture{};
+		Software_Texture* m_pGlossinessTexture{};
+
+		//Software Functions -----------------------------
+		void VertexTransformationFunction(Mesh& mesh);
+		void RenderTriangle(const Mesh& mesh, const std::vector<Vector2>& screenSpaceVertices, int vertexIndex, bool swapVertices);
+		void PixelShading(int pixelIndex, const Vertex_Out& pixel) const;
 		
+		void ClearBackground() const;
+		void ResetDepthBuffer();
+
+		void InitializeSoftwareMeshes();
+		void DeleteSoftwareResources();
+		void UpdateSoftware(const Timer* pTimer);
+		void RenderSoftware();
+
+
+		//DirectX Variables ------------------------------
+		bool m_ShowFire{ true };
+
+		bool m_IsInitialized{ false };		
 		std::vector<mesh*> m_vecMeshes;
-		
 		
 		//DIRECTX
 		HRESULT InitializeDirectX();
@@ -56,6 +115,12 @@ namespace dae
 		ID3D11DepthStencilView* m_pDepthStencilView{};
 		ID3D11Resource* m_pRenderTargetBuffer{};
 		ID3D11RenderTargetView* m_pRenderTargetView{};	
+
+		//DirectX Function -------------------------------
+		void InitializeDirectXMeshes();
+		void DeleteDirectXResources();
+		void UpdateDirectX(const Timer* pTimer);
+		void RenderDirectX() const;
 
 	};
 }

@@ -7,9 +7,9 @@ public:
 	Effect_Shaded(ID3D11Device* pDevice, const std::wstring& assetFile);
 	~Effect_Shaded();
 
-	void SetNormalMap(Textures* pTexture);
-	void SetSpeculareMap(Textures* pTexture);
-	void SetGlossinessMap(Textures* pTexture);
+	void SetNormalMap(DirectX_Texture* pTexture);
+	void SetSpeculareMap(DirectX_Texture* pTexture);
+	void SetGlossinessMap(DirectX_Texture* pTexture);
 
 	void SetInverseViewMatrix(const Matrix& matrix) override;
 	void SetWorldMatrix(const Matrix& matrix) override;

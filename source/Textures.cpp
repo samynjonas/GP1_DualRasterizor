@@ -1,7 +1,8 @@
 #include "pch.h"
 #include "Textures.h"
+#include "Vector2.h"
 
-Textures::Textures(const std::string& path, ID3D11Device* pDevice)
+DirectX_Texture::DirectX_Texture(const std::string& path, ID3D11Device* pDevice)
 {
 	// Make SDL_Surface, release at the end
 	SDL_Surface* pSurface = IMG_Load(path.c_str());
@@ -41,7 +42,7 @@ Textures::Textures(const std::string& path, ID3D11Device* pDevice)
 	SDL_FreeSurface(pSurface);
 }
 
-Textures::~Textures()
+DirectX_Texture::~DirectX_Texture()
 {
 	if (m_pResource)
 	{
@@ -53,11 +54,54 @@ Textures::~Textures()
 		m_pShaderResourceView->Release();
 	}
 }
-ID3D11Texture2D* Textures::GetResource() const
+ID3D11Texture2D* DirectX_Texture::GetResource() const
 {
 	return m_pResource;
 }
-ID3D11ShaderResourceView* Textures::GetShaderResourceView() const
+ID3D11ShaderResourceView* DirectX_Texture::GetShaderResourceView() const
 {
 	return m_pShaderResourceView;
+}
+
+namespace dae
+{
+	Software_Texture::Software_Texture(SDL_Surface* pSurface) :
+		m_pSurface{ pSurface },
+		m_pSurfacePixels{ (uint32_t*)pSurface->pixels }
+	{
+	}
+
+	Software_Texture::~Software_Texture()
+	{
+		if (m_pSurface)
+		{
+			SDL_FreeSurface(m_pSurface);
+			m_pSurface = nullptr;
+		}
+	}
+
+	Software_Texture* Software_Texture::LoadFromFile(const std::string& path)
+	{
+		return new Software_Texture{ IMG_Load(path.c_str()) };
+	}
+
+	ColorRGB Software_Texture::Sample(const Vector2& uv) const
+	{
+		Uint8 r{};
+		Uint8 g{};
+		Uint8 b{};
+
+		const int x{ static_cast<int>(uv.x * m_pSurface->w) };
+		const int y{ static_cast<int>(uv.y * m_pSurface->h) };
+
+		// Calculate the current pixelIndex on the texture
+		const Uint32 pixelIndex{ m_pSurfacePixels[x + y * m_pSurface->w] };
+
+		// Get the r g b values from the current pixel on the texture
+		SDL_GetRGB(pixelIndex, m_pSurface->format, &r, &g, &b);
+
+		const float maxColorValue{ 255.0f };
+
+		return ColorRGB{ r / maxColorValue, g / maxColorValue, b / maxColorValue };
+	}
 }

@@ -62,17 +62,17 @@ void Effect_Shaded::SetWorldMatrix(const Matrix& matrix)
 	m_pMatWorldVariable->SetMatrix(reinterpret_cast<const float*>(&matrix));
 }
 
-void Effect_Shaded::SetNormalMap(Textures* pTexture)
+void Effect_Shaded::SetNormalMap(DirectX_Texture* pTexture)
 {
 	if (m_pNormalMapVariable)
 		m_pNormalMapVariable->SetResource(pTexture->GetShaderResourceView());
 }
-void Effect_Shaded::SetSpeculareMap(Textures* pTexture)
+void Effect_Shaded::SetSpeculareMap(DirectX_Texture* pTexture)
 {
 	if (m_pSpecularMapVariable)
 		m_pSpecularMapVariable->SetResource(pTexture->GetShaderResourceView());
 }
-void Effect_Shaded::SetGlossinessMap(Textures* pTexture)
+void Effect_Shaded::SetGlossinessMap(DirectX_Texture* pTexture)
 {
 	if (m_pGlossinessMapVariable)
 		m_pGlossinessMapVariable->SetResource(pTexture->GetShaderResourceView());

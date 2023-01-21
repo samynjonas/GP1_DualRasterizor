@@ -10,6 +10,7 @@ namespace dae
 		//Initialize
 		SDL_GetWindowSize(pWindow, &m_Width, &m_Height);
 
+		//DirectX-------------------------
 
 		//Initialize DirectX pipeline
 		const HRESULT result = InitializeDirectX();
@@ -23,130 +24,496 @@ namespace dae
 			std::cout << "DirectX initialization failed!\n";
 		}
 
+		//Software------------------------
+
+		//Create Buffers
+		m_pFrontBuffer = SDL_GetWindowSurface(m_pWindow);
+		m_pBackBuffer = SDL_CreateRGBSurface(0, m_Width, m_Height, 32, 0, 0, 0, 0);
+		m_pBackBufferPixels = (uint32_t*)m_pBackBuffer->pixels;
+
+		m_pDepthBufferPixels = new float[m_Width * m_Height];
+		ResetDepthBuffer();
+
+		//TODO Fix textures
+		m_pNormalTexture		= Software_Texture::LoadFromFile("Resources/vehicle_normal.png");
+		m_pDiffuseTexture		= Software_Texture::LoadFromFile("Resources/vehicle_diffuse.png");
+		m_pSpecularTexture		= Software_Texture::LoadFromFile("Resources/vehicle_specular.png");
+		m_pGlossinessTexture	= Software_Texture::LoadFromFile("Resources/vehicle_gloss.png");
+
+		//--------------------------------
+
 		m_Camera.Initialize(45.f, Vector3{ 0.f, 0.f, -50.f }, static_cast<float>(m_Width) / static_cast<float>(m_Height));
 
-		std::vector<Vertex> vertices;
-		std::vector<uint32_t> indices;
-
-		//Vehicle
-		bool parse{ Utils::ParseOBJ("Resources/vehicle.obj", vertices, indices) };
-		if (parse == false)
-		{
-			std::cout << "parse failed\n";
-		}
-
-		Effect_Shaded* pShadedEffect = new Effect_Shaded(m_pDevice, L"Resources/PosTex3D.fx");
-
-		Textures diffuseTexture{	"Resources/vehicle_diffuse.png",	m_pDevice };
-		Textures normalTexture{		"Resources/vehicle_normal.png",		m_pDevice };
-		Textures specularTexture{	"Resources/vehicle_specular.png",	m_pDevice };
-		Textures glossinessTexture{ "Resources/vehicle_gloss.png",		m_pDevice };
-
-		pShadedEffect->SetDiffuseMap(&diffuseTexture);
-		pShadedEffect->SetNormalMap(&normalTexture);
-		pShadedEffect->SetSpeculareMap(&specularTexture);
-		pShadedEffect->SetGlossinessMap(&glossinessTexture);
-
-		m_vecMeshes.push_back(new mesh(m_pDevice, vertices, indices, pShadedEffect));
-
-		//Fire
-		Utils::ParseOBJ("Resources/fireFX.obj", vertices, indices);
-		effect* pEffect = new effect(m_pDevice, L"Resources/Transparency.fx");
-
-		Textures fireDiffuseTexture{ "Resources/fireFX_diffuse.png",	m_pDevice };
-		pEffect->SetDiffuseMap(&fireDiffuseTexture);
-
-		m_vecMeshes.push_back(new mesh(m_pDevice, vertices, indices, pEffect));
-
+		InitializeDirectXMeshes();
+		InitializeSoftwareMeshes();
 	}
 
 	Renderer::~Renderer()
 	{
-		for (auto& mesh : m_vecMeshes)
-		{
-			delete mesh;
-		}
-
-		//RELEASE RESOURCES IN REVERSED ORDER
-		if (m_pRenderTargetView)
-		{
-			m_pRenderTargetView->Release();
-		}
-
-		if (m_pRenderTargetBuffer)
-		{
-			m_pRenderTargetBuffer->Release();
-		}
-
-		if (m_pDepthStencilView)
-		{
-			m_pDepthStencilView->Release();
-		}
-
-		if (m_pDepthStencilBuffer)
-		{
-			m_pDepthStencilBuffer->Release();
-		}
-
-		if (m_pSwapChain)
-		{
-			m_pSwapChain->Release();
-		}
-
-		if (m_pDeviceContext)
-		{
-			m_pDeviceContext->ClearState();
-			m_pDeviceContext->Flush();
-			m_pDeviceContext->Release();
-		}
-
-		if (m_pDevice)
-		{
-			m_pDevice->Release();
-		}
-
-		//TODO fix hidden DXGIFactory memory leak
+		DeleteDirectXResources();
+		DeleteSoftwareResources();
 	}
 
 	void Renderer::Update(const Timer* pTimer)
 	{
 		m_Camera.Update(pTimer);
 
-		const float rotationSpeed{ 30.f };
-
-		for (auto& mesh : m_vecMeshes)
-		{
-			if (m_Rotating)
-			{
-				mesh->RotateY(rotationSpeed * TO_RADIANS * pTimer->GetElapsed());
-			}
-
-			mesh->UpdateMatrices(m_Camera.GetWorldViewProjection(), m_Camera.GetInvViewMatrix());
-		}
+		UpdateDirectX(pTimer);
+		UpdateSoftware(pTimer);
 	}
 
-	void Renderer::Render() const
+	void Renderer::Render()
 	{
-		if (!m_IsInitialized)
-			return;
-
-		//1. CLEAR RTV & DSV
-		ColorRGB clearColor = ColorRGB{ 0.f, 0.f, 0.3f };
-		m_pDeviceContext->ClearRenderTargetView(m_pRenderTargetView, &clearColor.r);
-		m_pDeviceContext->ClearDepthStencilView(m_pDepthStencilView, D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.f, 0);
-
-
-		//2. SET PIPELINE + INVOKE DRAWCALLS ( = RENDER)
-		for (auto& mesh : m_vecMeshes)
+		switch (m_RenderStyle)
 		{
-			mesh->Render(m_pDeviceContext);
+		case dae::Renderer::RenderingStyle::Software:
+			RenderSoftware();
+			break;
+		case dae::Renderer::RenderingStyle::DirectX:
+			RenderDirectX();
+			break;
+		default:
+			break;
 		}
 
-		//3. PRESENT BACKBUFFER (SWAP)
-		m_pSwapChain->Present(0, 0);
 	}
 
 
+	void Renderer::EnableRotation()
+	{
+		m_Rotating = !m_Rotating;
+		std::cout << "Rotation ";
+		if (m_Rotating)
+		{
+			std::cout << "Enabled\n";
+		}
+		else
+		{
+			std::cout << "Dissabled\n";
+		}
+	}
+	void Renderer::CycleRenderStyle()
+	{
+		m_RenderStyle = static_cast<RenderingStyle>((static_cast<int>(m_RenderStyle) + 1) % (static_cast<int>(RenderingStyle::DirectX) + 1));
+
+		std::cout << "RenderStyle set to: ";
+		switch (m_RenderStyle)
+		{
+		case dae::Renderer::RenderingStyle::Software:
+			std::cout << "software\n";
+			break;
+		case dae::Renderer::RenderingStyle::DirectX:
+			std::cout << "DirectX\n";
+			break;
+		default:
+			break;
+		}
+	}
+
+	//Software ------------------------------------------------------------------
+	void Renderer::InitializeSoftwareMeshes()
+	{
+		Utils::ParseOBJ("Resources/vehicle.obj", m_Mesh.vertices, m_Mesh.indices);
+		const Vector3 position{ m_Camera.origin + Vector3{ 0.0f, 0.0f, 50.0f } };
+		const Vector3 scale{ Vector3{ 1.0f, 1.0f, 1.0f } };
+
+		const Vector3 rotation{ };
+		m_Mesh.worldMatrix = Matrix::CreateScale(scale) * Matrix::CreateRotation(rotation) * Matrix::CreateTranslation(position);
+	}
+	void Renderer::DeleteSoftwareResources()
+	{
+		delete[] m_pDepthBufferPixels;
+
+		//TODO fix textures
+		//delete m_pTexture;
+		//m_pTexture = nullptr;
+		//
+		//delete m_pNormalTexture;
+		//m_pNormalTexture = nullptr;
+		//
+		//delete m_pDiffuseTexture;
+		//m_pDiffuseTexture = nullptr;
+		//
+		//delete m_pSpecularTexture;
+		//m_pSpecularTexture = nullptr;
+		//
+		//delete m_pGlossinessTexture;
+		//m_pGlossinessTexture = nullptr;
+	}
+	void Renderer::UpdateSoftware(const Timer* pTimer)
+	{
+		if (m_Rotating)
+		{
+			const float rotationSpeed{ 30.f };
+			m_Mesh.RotateY(rotationSpeed * pTimer->GetElapsed());
+		}
+	}
+	void Renderer::RenderSoftware()
+	{
+		//@START
+	//Lock BackBuffer
+		SDL_LockSurface(m_pBackBuffer);
+
+		//RenderWeek01();
+		//RenderWeek02();
+		//RenderWeek03();
+
+		VertexTransformationFunction(m_Mesh);
+
+		std::vector<Vector2> verticesScreenSpace;
+		for (const auto& ndcVertex : m_Mesh.vertices_out)
+		{
+			Vector2 vertex;
+			vertex.x = ((ndcVertex.position.x + 1) / 2) * m_Width;
+			vertex.y = ((1 - ndcVertex.position.y) / 2) * m_Height;
+
+			verticesScreenSpace.push_back(vertex);
+		}
+
+		ResetDepthBuffer();
+		ClearBackground();
+
+		switch (m_Mesh.primitiveTopology)
+		{
+		case PrimitiveTopology::TriangleList:
+			for (int index{ 0 }; index < m_Mesh.indices.size(); index += TRIANGLE_SIDES)
+			{
+				RenderTriangle(m_Mesh, verticesScreenSpace, index, false);
+			}
+			break;
+		case PrimitiveTopology::TriangleStrip:
+			for (int index{ 0 }; index < m_Mesh.indices.size() - 2; ++index)
+			{
+				RenderTriangle(m_Mesh, verticesScreenSpace, index, index % 2);
+			}
+			break;
+		default:
+			//if this is selected, no topoly is selected -- should not happen
+			break;
+		}
+
+
+		//@END
+		//Update SDL Surface
+		SDL_UnlockSurface(m_pBackBuffer);
+		SDL_BlitSurface(m_pBackBuffer, 0, m_pFrontBuffer, 0);
+		SDL_UpdateWindowSurface(m_pWindow);
+	}
+
+	void Renderer::VertexTransformationFunction(Mesh& mesh)
+	{
+		Matrix worldViewProjectionMatrix{ mesh.worldMatrix * m_Camera.viewMatrix * m_Camera.projectionMatrix };
+
+		mesh.vertices_out.clear();
+		mesh.vertices_out.reserve(mesh.vertices.size());
+
+		for (const Vertex& v : mesh.vertices)
+		{
+			//TODO fix vertex color
+			Vertex_Out vertex_out{ Vector4{}, v.color, v.uv, v.normal, v.tangent };
+
+			vertex_out.position = worldViewProjectionMatrix.TransformPoint({ v.position, 1.0f });
+			vertex_out.viewDirection = Vector3{ vertex_out.position.x, vertex_out.position.y, vertex_out.position.z }.Normalized();
+
+			vertex_out.normal = mesh.worldMatrix.TransformVector(v.normal);
+			vertex_out.tangent = mesh.worldMatrix.TransformVector(v.tangent);
+
+			const float invVw{ 1 / vertex_out.position.w };
+			vertex_out.position.x *= invVw;
+			vertex_out.position.y *= invVw;
+			vertex_out.position.z *= invVw;
+
+			mesh.vertices_out.emplace_back(vertex_out);
+		}
+	}
+	void Renderer::RenderTriangle(const Mesh& mesh, const std::vector<Vector2>& screenSpaceVertices, int vertexIndex, bool swapVertices)
+	{
+		const size_t vertexIndex0{ mesh.indices[vertexIndex + (2 * swapVertices)] };
+		const size_t vertexIndex1{ mesh.indices[vertexIndex + 1] };
+		const size_t vertexIndex2{ mesh.indices[vertexIndex + (!swapVertices * 2)] };
+
+		if (vertexIndex0 == vertexIndex1 || vertexIndex1 == vertexIndex2 || vertexIndex2 == vertexIndex0)
+		{
+			return;
+		}
+
+		const Vector2 vertex0{ screenSpaceVertices[vertexIndex0] };
+		const Vector2 vertex1{ screenSpaceVertices[vertexIndex1] };
+		const Vector2 vertex2{ screenSpaceVertices[vertexIndex2] };
+
+		const Vector2 edge0{ vertex1 - vertex0 };
+		const Vector2 edge1{ vertex2 - vertex1 };
+		const Vector2 edge2{ vertex0 - vertex2 };
+
+
+		const float area{ Vector2::Cross(edge0, edge1) };
+		const float invArea{ 1 / area };
+
+		//bounding box
+		Vector2 topLeft{ Vector2::Min(vertex0, Vector2::Min(vertex1, vertex2)) };
+		Vector2 bottomRight{ Vector2::Max(vertex0, Vector2::Max(vertex1, vertex2)) };
+
+		const float margin{ 1 };
+
+		topLeft.x = Clamp(topLeft.x - margin, 0.f, static_cast<float>(m_Width));
+		topLeft.y = Clamp(topLeft.y - margin, 0.f, static_cast<float>(m_Height));
+		bottomRight.x = Clamp(bottomRight.x + margin, 0.f, static_cast<float>(m_Width));
+		bottomRight.y = Clamp(bottomRight.y + margin, 0.f, static_cast<float>(m_Height));
+
+		const int startX{ static_cast<int>(topLeft.x) };
+		const int endX{ static_cast<int>(bottomRight.x) };
+
+		const int startY{ static_cast<int>(topLeft.y) };
+		const int endY{ static_cast<int>(bottomRight.y) };
+
+		for (int px{ startX }; px < endX; ++px)
+		{
+			for (int py{ startY }; py < endY; ++py)
+			{
+				Vector2 currentPixel{ static_cast<float>(px), static_cast<float>(py) };
+				const int pixelIndex{ px + py * m_Width };
+
+				if (m_ShowBoundingBox)
+				{
+					m_pBackBufferPixels[pixelIndex] = SDL_MapRGB(m_pBackBuffer->format,
+						static_cast<uint8_t>(255),
+						static_cast<uint8_t>(255),
+						static_cast<uint8_t>(255));
+
+					continue;
+				}
+
+				bool hitTriangle{ Utils::IsInTriangle(currentPixel, vertex0, vertex1, vertex2) };
+				if (hitTriangle)
+				{
+					//Calculate weights
+					float weight0{ Vector2::Cross((currentPixel - vertex1), vertex1 - vertex2) };
+					float weight1{ Vector2::Cross((currentPixel - vertex2), vertex2 - vertex0) };
+					float weight2{ Vector2::Cross((currentPixel - vertex0), vertex0 - vertex1) };
+
+					weight0 *= invArea;
+					weight1 *= invArea;
+					weight2 *= invArea;
+
+					const float depth0{ mesh.vertices_out[vertexIndex0].position.z };
+					const float depth1{ mesh.vertices_out[vertexIndex1].position.z };
+					const float depth2{ mesh.vertices_out[vertexIndex2].position.z };
+
+					const float interpolatedZDepth{ 1.f / (weight0 * (1.f / depth0) + weight1 * (1.f / depth1) + weight2 * (1.f / depth2)) };
+
+					if (m_pDepthBufferPixels[pixelIndex] < interpolatedZDepth)
+					{
+						continue;
+					}
+
+					m_pDepthBufferPixels[pixelIndex] = interpolatedZDepth;
+
+
+					Vertex_Out pixel{};
+
+					const float interpolatedWDepth{ 1.f / (weight0 * (1.f / mesh.vertices_out[vertexIndex0].position.w) + weight1 * (1.f / mesh.vertices_out[vertexIndex1].position.w) + weight2 * (1.f / mesh.vertices_out[vertexIndex2].position.w)) };
+
+					const Vector2 UV
+					{
+						(
+							weight0 * mesh.vertices_out[vertexIndex0].uv / mesh.vertices_out[vertexIndex0].position.w +
+							weight1 * mesh.vertices_out[vertexIndex1].uv / mesh.vertices_out[vertexIndex1].position.w +
+							weight2 * mesh.vertices_out[vertexIndex2].uv / mesh.vertices_out[vertexIndex2].position.w
+						) * interpolatedWDepth
+					};
+
+
+					const Vector3 normal
+					{
+						(
+							weight0 * mesh.vertices_out[vertexIndex0].normal / mesh.vertices_out[vertexIndex0].position.w +
+							weight1 * mesh.vertices_out[vertexIndex1].normal / mesh.vertices_out[vertexIndex1].position.w +
+							weight2 * mesh.vertices_out[vertexIndex2].normal / mesh.vertices_out[vertexIndex2].position.w
+						) * interpolatedWDepth
+					};
+
+					const Vector3 tangent
+					{
+						(
+							weight0 * mesh.vertices_out[vertexIndex0].tangent / mesh.vertices_out[vertexIndex0].position.w +
+							weight1 * mesh.vertices_out[vertexIndex1].tangent / mesh.vertices_out[vertexIndex1].position.w +
+							weight2 * mesh.vertices_out[vertexIndex2].tangent / mesh.vertices_out[vertexIndex2].position.w
+						) * interpolatedWDepth
+					};
+
+					const Vector3 viewDirection
+					{
+						(
+							weight0 * mesh.vertices_out[vertexIndex0].viewDirection / mesh.vertices_out[vertexIndex0].position.w +
+							weight1 * mesh.vertices_out[vertexIndex1].viewDirection / mesh.vertices_out[vertexIndex1].position.w +
+							weight2 * mesh.vertices_out[vertexIndex2].viewDirection / mesh.vertices_out[vertexIndex2].position.w
+						) * interpolatedWDepth
+					};
+
+					pixel.uv = UV;
+					pixel.normal = normal.Normalized();
+					pixel.tangent = tangent.Normalized();
+					pixel.viewDirection = viewDirection.Normalized();
+
+
+					if (m_ShowDepthBuffer)
+					{
+						const float depthColor{ Remap(interpolatedZDepth, 0.985f, 1.0f) };
+						pixel.color = { depthColor, depthColor, depthColor };
+					}
+
+					PixelShading(px + (py * m_Width), pixel);
+				}
+			}
+		}
+	}
+
+	void Renderer::PixelShading(int pixelIndex, const Vertex_Out& pixel) const
+	{
+		Vector3 pixelNormal{ pixel.normal };
+
+		if (m_IsNormalMapEnabled)
+		{
+			const Vector3 binormal{ Vector3::Cross(pixel.normal, pixel.tangent) };
+			const Matrix tangentSpaceAxis{ Matrix{pixel.tangent, binormal, pixel.normal, Vector3::Zero} };
+
+			const ColorRGB normalMap{ (2 * m_pNormalTexture->Sample(pixel.uv)) - ColorRGB{1,1,1} };
+			const Vector3 normalSample{ normalMap.r, normalMap.g, normalMap.b };
+			pixelNormal = tangentSpaceAxis.TransformVector(normalSample);
+		}
+
+		Vector3 lightDirection{ 0.577f, -0.577f, 0.577f };
+		lightDirection.Normalize();
+
+		const float lightIntensity{ 7.f };
+		const float specularShinyValue{ 25.f };
+
+
+		ColorRGB finalColor{};
+
+		const float observedArea{ Vector3::DotClamped(pixelNormal.Normalized(), -lightDirection) };
+
+		switch (m_LightingMode)
+		{
+		case dae::Renderer::LightingMode::Combined:
+		{
+			const ColorRGB lambert{ LightingUtils::Lambert(1.0f, m_pDiffuseTexture->Sample(pixel.uv)) };
+			const float specularExp{ specularShinyValue * m_pGlossinessTexture->Sample(pixel.uv).r };
+			const ColorRGB specular{ m_pSpecularTexture->Sample(pixel.uv) * LightingUtils::Phong(1.0f, specularExp, -lightDirection, pixel.viewDirection, pixelNormal) };
+			finalColor += lightIntensity * observedArea * lambert + specular;
+		}
+		break;
+		case dae::Renderer::LightingMode::ObservedArea:
+		{
+			finalColor += ColorRGB{ observedArea, observedArea, observedArea };
+		}
+		break;
+		case dae::Renderer::LightingMode::Diffuse:
+		{
+			const ColorRGB lambert{ LightingUtils::Lambert(1.0f, m_pDiffuseTexture->Sample(pixel.uv)) };
+			finalColor += lightIntensity * observedArea * lambert;
+		}
+		break;
+		case dae::Renderer::LightingMode::Specular:
+		{
+			const float specularExp{ specularShinyValue * m_pGlossinessTexture->Sample(pixel.uv).r };
+			const ColorRGB specular{ m_pSpecularTexture->Sample(pixel.uv) * LightingUtils::Phong(1.0f, specularExp, -lightDirection, pixel.viewDirection, pixelNormal) };
+			finalColor += observedArea * specular;
+		}
+		break;
+		default:
+			break;
+		}
+
+		if (m_ShowDepthBuffer)
+		{
+			finalColor += pixel.color;
+		}
+
+		//Update Color in Buffer
+		finalColor.MaxToOne();
+
+		m_pBackBufferPixels[pixelIndex] = SDL_MapRGB(m_pBackBuffer->format,
+			static_cast<uint8_t>(finalColor.r * 255),
+			static_cast<uint8_t>(finalColor.g * 255),
+			static_cast<uint8_t>(finalColor.b * 255));
+
+	}
+
+	void Renderer::ClearBackground() const
+	{
+		SDL_FillRect(m_pBackBuffer, NULL, SDL_MapRGB(m_pBackBuffer->format, 100, 100, 100));
+	}
+	void Renderer::ResetDepthBuffer()
+	{
+		std::fill_n(m_pDepthBufferPixels, (m_Width * m_Height), FLT_MAX);
+	}
+
+	void Renderer::CycleShadingMode()
+	{
+		m_LightingMode = static_cast<LightingMode>((static_cast<int>(m_LightingMode) + 1) % (static_cast<int>(LightingMode::Specular) + 1));
+		std::cout << "Shading set to: ";
+		switch (m_LightingMode)
+		{
+		case dae::Renderer::LightingMode::Combined:
+			std::cout << "combined\n";
+			break;
+		case dae::Renderer::LightingMode::ObservedArea:
+			std::cout << "ObservedArea\n";
+			break;
+		case dae::Renderer::LightingMode::Diffuse:
+			std::cout << "Diffuse\n";
+			break;
+		case dae::Renderer::LightingMode::Specular:
+			std::cout << "Specular\n";
+			break;
+		default:
+			break;
+		}
+
+
+	}
+	void Renderer::ToggleNormalMap()
+	{
+		m_IsNormalMapEnabled = !m_IsNormalMapEnabled;
+		std::cout << "NormalMap ";
+		if (m_IsNormalMapEnabled)
+		{
+			std::cout << "Enabled\n";
+		}
+		else
+		{
+			std::cout << "Dissabled\n";
+		}
+	}
+	void Renderer::ToggleDepthBuffer()
+	{
+		m_ShowDepthBuffer = !m_ShowDepthBuffer;
+		std::cout << "DepthBuffer ";
+		if (m_ShowDepthBuffer)
+		{
+			std::cout << "Enabled\n";
+		}
+		else
+		{
+			std::cout << "Dissabled\n";
+		}
+	}
+	void Renderer::ToggleBoundingBoxVisualization()
+	{
+		m_ShowBoundingBox = !m_ShowBoundingBox;
+		std::cout << "BoundingBox ";
+		if (m_ShowBoundingBox)
+		{
+			std::cout << "Enabled\n";
+		}
+		else
+		{
+			std::cout << "Dissabled\n";
+		}
+	}
+
+	//DirectX --------------------------------------------------------------------
 	HRESULT Renderer::InitializeDirectX()
 	{
 		//1. Create Device & DeviceContext
@@ -262,18 +629,143 @@ namespace dae
 
 		return S_OK;
 	}
-}
-
-void Renderer::CycleFilteringMethods()
-{
-	for (auto& mesh : m_vecMeshes)
+	void Renderer::InitializeDirectXMeshes()
 	{
-		mesh->CycleFilteringMethod();
-	}	
-}
+		std::vector<Vertex> vertices;
+		std::vector<uint32_t> indices;
 
-void Renderer::EnableRotation()
-{
-	m_Rotating = !m_Rotating;
-}
+		//Vehicle
+		bool parse{ Utils::ParseOBJ("Resources/vehicle.obj", vertices, indices) };
+		if (parse == false)
+		{
+			std::cout << "parse failed\n";
+		}
 
+		Effect_Shaded* pShadedEffect = new Effect_Shaded(m_pDevice, L"Resources/PosTex3D.fx");
+
+		DirectX_Texture diffuseTexture{ "Resources/vehicle_diffuse.png",	m_pDevice };
+		DirectX_Texture normalTexture{ "Resources/vehicle_normal.png",		m_pDevice };
+		DirectX_Texture specularTexture{ "Resources/vehicle_specular.png",	m_pDevice };
+		DirectX_Texture glossinessTexture{ "Resources/vehicle_gloss.png",		m_pDevice };
+
+		pShadedEffect->SetDiffuseMap(&diffuseTexture);
+		pShadedEffect->SetNormalMap(&normalTexture);
+		pShadedEffect->SetSpeculareMap(&specularTexture);
+		pShadedEffect->SetGlossinessMap(&glossinessTexture);
+
+		m_vecMeshes.push_back(new mesh(m_pDevice, vertices, indices, pShadedEffect));
+
+		//Fire
+		Utils::ParseOBJ("Resources/fireFX.obj", vertices, indices);
+		effect* pEffect = new effect(m_pDevice, L"Resources/Transparency.fx");
+
+		DirectX_Texture fireDiffuseTexture{ "Resources/fireFX_diffuse.png",	m_pDevice };
+		pEffect->SetDiffuseMap(&fireDiffuseTexture);
+
+		m_vecMeshes.push_back(new mesh(m_pDevice, vertices, indices, pEffect));
+	}
+	void Renderer::DeleteDirectXResources()
+	{
+		for (auto& mesh : m_vecMeshes)
+		{
+			delete mesh;
+		}
+
+		//RELEASE RESOURCES IN REVERSED ORDER
+		if (m_pRenderTargetView)
+		{
+			m_pRenderTargetView->Release();
+		}
+
+		if (m_pRenderTargetBuffer)
+		{
+			m_pRenderTargetBuffer->Release();
+		}
+
+		if (m_pDepthStencilView)
+		{
+			m_pDepthStencilView->Release();
+		}
+
+		if (m_pDepthStencilBuffer)
+		{
+			m_pDepthStencilBuffer->Release();
+		}
+
+		if (m_pSwapChain)
+		{
+			m_pSwapChain->Release();
+		}
+
+		if (m_pDeviceContext)
+		{
+			m_pDeviceContext->ClearState();
+			m_pDeviceContext->Flush();
+			m_pDeviceContext->Release();
+		}
+
+		if (m_pDevice)
+		{
+			m_pDevice->Release();
+		}
+
+		//TODO fix hidden DXGIFactory memory leak
+	}
+	void Renderer::UpdateDirectX(const Timer* pTimer)
+	{
+		const float rotationSpeed{ 30.f };
+
+		for (auto& mesh : m_vecMeshes)
+		{
+			if (m_Rotating)
+			{
+				mesh->RotateY(rotationSpeed * TO_RADIANS * pTimer->GetElapsed());
+			}
+
+			mesh->UpdateMatrices(m_Camera.GetWorldViewProjection(), m_Camera.GetInvViewMatrix());
+		}
+	}
+	void Renderer::RenderDirectX() const
+	{
+		if (!m_IsInitialized)
+			return;
+
+		//1. CLEAR RTV & DSV
+		ColorRGB clearColor = ColorRGB{ 0.f, 0.f, 0.3f };
+		m_pDeviceContext->ClearRenderTargetView(m_pRenderTargetView, &clearColor.r);
+		m_pDeviceContext->ClearDepthStencilView(m_pDepthStencilView, D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.f, 0);
+
+
+		//2. SET PIPELINE + INVOKE DRAWCALLS ( = RENDER)
+		m_vecMeshes[0]->Render(m_pDeviceContext); //Vehicle
+		if (m_ShowFire)
+		{
+			m_vecMeshes[1]->Render(m_pDeviceContext); //Vehicle
+		}
+
+		//3. PRESENT BACKBUFFER (SWAP)
+		m_pSwapChain->Present(0, 0);
+	}
+
+	void Renderer::CycleFilteringMethods()
+	{
+		for (auto& mesh : m_vecMeshes)
+		{
+			mesh->CycleFilteringMethod();
+		}
+	}
+	void Renderer::ToggleFireFx()
+	{
+		m_ShowFire = !m_ShowFire;
+
+		std::cout << "Fire ";
+		if (m_ShowFire)
+		{
+			std::cout << "Enabled\n";
+		}
+		else
+		{
+			std::cout << "Dissabled\n";
+		}
+	}
+}

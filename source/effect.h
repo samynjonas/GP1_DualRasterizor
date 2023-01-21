@@ -21,7 +21,7 @@ public:
 	virtual void SetInverseViewMatrix(const Matrix& matrix) {};
 	virtual void SetWorldMatrix(const Matrix& matrix) {};
 
-	void SetDiffuseMap(Textures* pTexture);
+	void SetDiffuseMap(DirectX_Texture* pTexture);
 
 	void CycleFilteringMethod();
 

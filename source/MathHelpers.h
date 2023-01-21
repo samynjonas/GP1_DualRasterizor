@@ -26,6 +26,12 @@ namespace dae
 		return a * a;
 	}
 
+	inline float Remap(float value, float min, float max)
+	{
+		const float clamped{ std::clamp(value, min, max) };
+		return (clamped - min) / (max - min);
+	}
+
 	inline float Lerpf(float a, float b, float factor)
 	{
 		return ((1 - factor) * a) + (factor * b);
