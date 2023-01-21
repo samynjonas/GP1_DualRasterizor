@@ -1,0 +1,208 @@
+//------------------------------------------------
+// Globals
+//------------------------------------------------
+Texture2D gDiffuseMap    : DiffuseMap;
+Texture2D gNormalMap     : NormalMap;
+Texture2D gSpecularMap   : SpecularMap;
+Texture2D gGlossinessMap : GlossinessMap;
+
+float4x4 gWorldViewProj  : WorldViewProjection;
+float4x4 gWorldMatrix    : World;
+float4x4 gViewInverse    : ViewInverse;
+
+float gPI = 3.141592653f;
+float3 gLightDirection = normalize(float3(0.577f, -0.577f, 0.577f));
+float gLightIntensity = 7.0f;
+float gShininess = 25.0f;
+
+SamplerState samPoint : SampleState
+{
+    Filter = MIN_MAG_MIP_POINT;
+    AddressU = Wrap; //or Mirror, Clamp, Border
+    AddressV = Wrap; //or Mirror, Clamp, Border
+};
+
+SamplerState samLinear : SampleState
+{
+    Filter = MIN_MAG_MIP_LINEAR;
+    AddressU = Wrap; //or Mirror, Clamp, Border
+    AddressV = Wrap; //or Mirror, Clamp, Border
+};
+
+SamplerState samAnisotropic : SampleState
+{
+    Filter = ANISOTROPIC;
+    AddressU = Wrap; //or Mirror, Clamp, Border
+    AddressV = Wrap; //or Mirror, Clamp, Border
+};
+
+
+RasterizerState gRasterizerState
+{
+    CullMode = none;
+    FrontCounterClockwise = false; //default
+};
+
+BlendState gBlendState
+{
+    BlendEnable[0] = true;
+    SrcBlend = src_alpha;
+    DestBlend = inv_src_alpha;
+    BlendOp = add;
+    SrcBlendAlpha = zero;
+    DestBlendAlpha = zero;
+    BlendOpAlpha = add;
+    RenderTargetWriteMask[0] = 0x0F;
+};
+
+DepthStencilState gDepthStencilState
+{
+    DepthEnable = true;
+    DepthWriteMask = 1;
+    DepthFunc = less;
+    StencilEnable = false;
+};
+
+
+// -----------------------------------------------------
+// Input/Output structs
+// -----------------------------------------------------
+struct VS_INPUT
+{
+    float3 Position : POSITION;
+    float2 UV       : TEXCOORD;
+    float3 Normal   : NORMAL;
+    float3 Tangent  : TANGENT;
+};
+
+struct VS_OUTPUT
+{
+    float4 Position      : SV_POSITION;
+    float4 WorldPosition : COLOR;
+    float2 UV            : TEXCOORD;
+    float3 Normal        : NORMAL;
+    float3 Tangent       : TANGENT;
+};
+
+
+// -----------------------------------------------------
+// Vertex Shader
+// -----------------------------------------------------
+VS_OUTPUT VS(VS_INPUT input)
+{
+    VS_OUTPUT output     = (VS_OUTPUT)0;
+    output.Position      = mul(float4(input.Position, 1.0f), gWorldViewProj);
+    output.UV            = input.UV;
+    output.Tangent       = mul(normalize(input.Tangent), (float3x3)gWorldMatrix);
+    output.Normal        = mul(normalize(input.Normal),  (float3x3)gWorldMatrix);
+    return output;
+}
+
+
+// -----------------------------------------------------
+// BRDF
+// -----------------------------------------------------
+float4 Lambert(float kd, float4 cd)
+{
+    return cd * kd / gPI;
+}
+
+float Phong(float ks, float exp, float3 l, float3 v, float3 n)
+{
+    float3 reflectVector = reflect(l, n);
+    float  reflectView = saturate(dot(reflectVector, v));
+    float  phong = ks * pow(reflectView, exp);
+    
+    return phong;
+}
+
+
+// -----------------------------------------------------
+// Pixel Shader
+// -----------------------------------------------------
+float4 PS_Phong(VS_OUTPUT input, SamplerState state) : SV_TARGET
+{
+    const float3    binormal = cross(input.Normal, input.Tangent);
+    const float4x4  tangentSpaceAxis = float4x4(float4(input.Tangent, 0.0f), float4(binormal, 0.0f), float4(input.Normal, 0.0), float4(0.0f, 0.0f, 0.0f, 1.0f));
+    const float3    currentNormalMap = 2.0f * gNormalMap.Sample(state, input.UV).rgb - float3(1.0f, 1.0f, 1.0f);
+    const float3    normal = normalize(mul(float4(currentNormalMap, 0.0f), tangentSpaceAxis)).rgb;
+
+    const float3    viewDirection = normalize(input.WorldPosition.xyz - gViewInverse[3].xyz);
+
+    const float     observedArea = saturate(dot(normal, -gLightDirection));
+    const float4    lambert = Lambert(1.0f, gDiffuseMap.Sample(state, input.UV));
+    const float     specularExp = gShininess * gGlossinessMap.Sample(state, input.UV).r;
+    const float4    specular = gSpecularMap.Sample(state, input.UV) * Phong(1.0f, specularExp, -gLightDirection, viewDirection, input.Normal);
+
+    return (gLightIntensity * lambert + specular) * observedArea;
+}
+
+float4 PS_POINT(VS_OUTPUT input) : SV_TARGET
+{
+    return PS_Phong(input,samPoint);
+}
+
+float4 PS_LINEAR(VS_OUTPUT input) : SV_TARGET
+{
+    return PS_Phong(input,samLinear);
+}
+
+float4 PS_ANISOTROPIC(VS_OUTPUT input) : SV_TARGET
+{
+    return PS_Phong(input,samAnisotropic);
+}
+
+// -----------------------------------------------------
+// Technique (Actual shader)
+// -----------------------------------------------------
+technique11 DefaultTechnique
+{
+    pass P0
+    {
+        SetRasterizerState(gRasterizerState);
+        SetDepthStencilState(gDepthStencilState, 0);
+        SetBlendState(gBlendState, float4(0.0f, 0.0f, 0.0f, 0.0f), 0xFFFFFFFF);
+        SetVertexShader(CompileShader(vs_5_0, VS()));
+        SetGeometryShader(NULL);
+        SetPixelShader(CompileShader(ps_5_0, PS_POINT()));
+    }
+}
+
+technique11 PointFilteringTechnique
+{
+    pass P0
+    {
+        SetRasterizerState(gRasterizerState);
+        SetDepthStencilState(gDepthStencilState, 0);
+        SetBlendState(gBlendState, float4(0.0f, 0.0f, 0.0f, 0.0f), 0xFFFFFFFF);
+        SetVertexShader(CompileShader(vs_5_0, VS()));
+        SetGeometryShader(NULL);
+        SetPixelShader(CompileShader(ps_5_0, PS_POINT()));
+    }
+}
+
+technique11 LinearFilteringTechnique
+{
+    pass P0
+    {
+        SetRasterizerState(gRasterizerState);
+        SetDepthStencilState(gDepthStencilState, 0);
+        SetBlendState(gBlendState, float4(0.0f, 0.0f, 0.0f, 0.0f), 0xFFFFFFFF);
+        SetVertexShader(CompileShader(vs_5_0, VS()));
+        SetGeometryShader(NULL);
+        SetPixelShader(CompileShader(ps_5_0, PS_LINEAR()));
+    }
+}
+
+technique11 AnisotropicFilteringTechnique
+{
+    pass P0
+    {
+        SetRasterizerState(gRasterizerState);
+        SetDepthStencilState(gDepthStencilState, 0);
+        SetBlendState(gBlendState, float4(0.0f, 0.0f, 0.0f, 0.0f), 0xFFFFFFFF);
+        SetVertexShader(CompileShader(vs_5_0, VS()));
+        SetGeometryShader(NULL);
+        SetPixelShader(CompileShader(ps_5_0, PS_ANISOTROPIC()));
+    }
+}

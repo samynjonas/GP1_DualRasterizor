@@ -1,6 +1,9 @@
 #pragma once
 #include <fstream>
+#include <vector>
+
 #include "Math.h"
+#include "DataTypes.h"
 
 namespace dae
 {
@@ -9,8 +12,16 @@ namespace dae
 		//Just parses vertices and indices
 #pragma warning(push)
 #pragma warning(disable : 4505) //Warning unreferenced local function
-		static bool ParseOBJ(const std::string& filename, std::vector<Vertex_In>& vertices, std::vector<uint32_t>& indices, bool flipAxisAndWinding = true)
+		static bool ParseOBJ(const std::string& filename, std::vector<Vertex>& vertices, std::vector<uint32_t>& indices, bool flipAxisAndWinding = true)
 		{
+#ifdef DISABLE_OBJ
+
+			//TODO: Enable the code below after uncommenting all the vertex attributes of DataTypes::Vertex
+			// >> Comment/Remove '#define DISABLE_OBJ'
+			assert(false && "OBJ PARSER not enabled! Check the comments in Utils::ParseOBJ");
+
+#else
+
 			std::ifstream file(filename);
 			if (!file)
 				return false;
@@ -64,7 +75,7 @@ namespace dae
 					//add the material index as attibute to the attribute array
 					//
 					// Faces or triangles
-					Vertex_In vertex{};
+					Vertex vertex{};
 					size_t iPosition, iTexCoord, iNormal;
 
 					uint32_t tempIndices[3];
@@ -101,7 +112,7 @@ namespace dae
 					}
 
 					indices.push_back(tempIndices[0]);
-					if (flipAxisAndWinding) 
+					if (flipAxisAndWinding)
 					{
 						indices.push_back(tempIndices[2]);
 						indices.push_back(tempIndices[1]);
@@ -115,7 +126,6 @@ namespace dae
 				//read till end of line and ignore all remaining chars
 				file.ignore(1000, '\n');
 			}
-
 			//Cheap Tangent Calculations
 			for (uint32_t i = 0; i < indices.size(); i += 3)
 			{
@@ -136,18 +146,17 @@ namespace dae
 				const Vector2 diffY = Vector2(uv1.y - uv0.y, uv2.y - uv0.y);
 				float r = 1.f / Vector2::Cross(diffX, diffY);
 
+
 				Vector3 tangent = (edge0 * diffY.y - edge1 * diffY.x) * r;
 				vertices[index0].tangent += tangent;
 				vertices[index1].tangent += tangent;
 				vertices[index2].tangent += tangent;
 			}
-
-			//Create the Tangents (reject)
+			//Fix the tangents per vertex now because we accumulated
 			for (auto& v : vertices)
 			{
 				v.tangent = Vector3::Reject(v.tangent, v.normal).Normalized();
-
-				if(flipAxisAndWinding)
+				if (flipAxisAndWinding)
 				{
 					v.position.z *= -1.f;
 					v.normal.z *= -1.f;
@@ -157,6 +166,7 @@ namespace dae
 			}
 
 			return true;
+#endif
 		}
 #pragma warning(pop)
 	}

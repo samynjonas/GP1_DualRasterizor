@@ -36,6 +36,13 @@
     <ClInclude Include="ColorRGB.h">
       <Filter>Math</Filter>
     </ClInclude>
+    <ClInclude Include="effect.h" />
+    <ClInclude Include="mesh.h" />
+    <ClInclude Include="DataTypes.h" />
+    <ClInclude Include="Camera.h" />
+    <ClInclude Include="Textures.h" />
+    <ClInclude Include="Utils.h" />
+    <ClInclude Include="Effect_Shaded.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp" />
@@ -56,5 +63,9 @@
       <Filter>Math</Filter>
     </ClCompile>
     <ClCompile Include="pch.cpp" />
+    <ClCompile Include="effect.cpp" />
+    <ClCompile Include="mesh.cpp" />
+    <ClCompile Include="Textures.cpp" />
+    <ClCompile Include="Effect_Shaded.cpp" />
   </ItemGroup>
 </Project>
