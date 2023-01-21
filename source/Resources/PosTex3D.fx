@@ -45,13 +45,7 @@ RasterizerState gRasterizerState
 
 BlendState gBlendState
 {
-    BlendEnable[0] = true;
-    SrcBlend = src_alpha;
-    DestBlend = inv_src_alpha;
-    BlendOp = add;
-    SrcBlendAlpha = zero;
-    DestBlendAlpha = zero;
-    BlendOpAlpha = add;
+    BlendEnable[0] = false;
     RenderTargetWriteMask[0] = 0x0F;
 };
 
@@ -122,19 +116,13 @@ float Phong(float ks, float exp, float3 l, float3 v, float3 n)
 // -----------------------------------------------------
 float4 PS_Phong(VS_OUTPUT input, SamplerState state) : SV_TARGET
 {
-    const float3    binormal = cross(input.Normal, input.Tangent);
-    const float4x4  tangentSpaceAxis = float4x4(float4(input.Tangent, 0.0f), float4(binormal, 0.0f), float4(input.Normal, 0.0), float4(0.0f, 0.0f, 0.0f, 1.0f));
-    const float3    currentNormalMap = 2.0f * gNormalMap.Sample(state, input.UV).rgb - float3(1.0f, 1.0f, 1.0f);
-    const float3    normal = normalize(mul(float4(currentNormalMap, 0.0f), tangentSpaceAxis)).rgb;
-
-    const float3    viewDirection = normalize(input.WorldPosition.xyz - gViewInverse[3].xyz);
-
-    const float     observedArea = saturate(dot(normal, -gLightDirection));
-    const float4    lambert = Lambert(1.0f, gDiffuseMap.Sample(state, input.UV));
+    const float     observedArea = saturate(dot(input.Normal, -gLightDirection));
+    const float4    lambert = Lambert(1.f, gDiffuseMap.Sample(state, input.UV));
     const float     specularExp = gShininess * gGlossinessMap.Sample(state, input.UV).r;
+    const float3    viewDirection = normalize(input.WorldPosition.xyz - gViewInverse[3].xyz);
     const float4    specular = gSpecularMap.Sample(state, input.UV) * Phong(1.0f, specularExp, -gLightDirection, viewDirection, input.Normal);
 
-    return (gLightIntensity * lambert + specular) * observedArea;
+    return gLightIntensity * observedArea * lambert + specular;
 }
 
 float4 PS_POINT(VS_OUTPUT input) : SV_TARGET
