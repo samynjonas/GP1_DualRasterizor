@@ -149,3 +149,8 @@ void mesh::CycleFilteringMethod()
 {
 	m_pEffect->CycleFilteringMethod();
 }
+
+void mesh::CycleCullMode()
+{
+	m_pEffect->CycleCullMode();
+}

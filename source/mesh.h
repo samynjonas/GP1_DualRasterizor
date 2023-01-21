@@ -16,6 +16,7 @@ public:
 	void UpdateMatrices(const Matrix& WorldViewProjection, const Matrix& invView);
 
 	void CycleFilteringMethod();
+	void CycleCullMode();
 
 	void RotateX(float angle);
 	void RotateY(float angle);

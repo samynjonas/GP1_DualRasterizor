@@ -24,6 +24,7 @@ public:
 	void SetDiffuseMap(DirectX_Texture* pTexture);
 
 	void CycleFilteringMethod();
+	void CycleCullMode();
 
 protected:
 	enum class FilteringMethod
@@ -33,12 +34,22 @@ protected:
 		ANISOTROPIC
 	};
 
+	enum class CullMode
+	{
+		Off,
+		Front,
+		Back
+	};
+	CullMode m_CullMode;
+
 	FilteringMethod m_FilteringMethod{ FilteringMethod::POINT };
 
 	ID3DX11Effect* m_pEffect;
 	ID3DX11EffectTechnique* m_pTechnique;
 	ID3DX11EffectMatrixVariable* m_pMatWorldViewProjVariable;
 	ID3DX11EffectShaderResourceVariable* m_pDiffuseMapVariable;
+
+	ID3DX11EffectRasterizerVariable* m_pRasterizerDesc;
 
 	static ID3DX11Effect* LoadEffect(ID3D11Device* pDevice, const std::wstring& assetFile)
 	{

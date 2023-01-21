@@ -36,7 +36,7 @@ namespace dae
 		void ToggleDepthBuffer();				//F7
 		void ToggleBoundingBoxVisualization();	//F8
 
-		void CycleCullModes() {};					//F9
+		void CycleCullModes();					//F9
 		void ToggleUniformClearColor() {};			//F10
 		void TogglePrintFPW() {};					//F11
 

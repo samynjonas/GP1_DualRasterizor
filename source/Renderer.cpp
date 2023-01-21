@@ -75,9 +75,7 @@ namespace dae
 		default:
 			break;
 		}
-
 	}
-
 
 	void Renderer::EnableRotation()
 	{
@@ -107,6 +105,13 @@ namespace dae
 			break;
 		default:
 			break;
+		}
+	}
+	void Renderer::CycleCullModes()
+	{
+		for (auto& mesh : m_vecMeshes)
+		{
+			mesh->CycleCullMode();
 		}
 	}
 
