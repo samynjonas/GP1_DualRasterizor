@@ -98,15 +98,18 @@ VS_OUTPUT VS(VS_INPUT input)
 // -----------------------------------------------------
 float4 Lambert(float kd, float4 cd)
 {
-    return cd * kd / gPI;
+    float4 rho = cd * kd;
+    float4 lambert = rho / gPI;
+
+    return lambert;
 }
 
 float Phong(float ks, float exp, float3 l, float3 v, float3 n)
 {
-    float3 reflectVector = reflect(l, n);
-    float  reflectView = saturate(dot(reflectVector, v));
-    float  phong = ks * pow(reflectView, exp);
-    
+    float3 reflectVec = reflect(l, n);
+    const float angle = max(dot(reflectVec, v), 0.0f);
+    const float phong = ks * pow((angle), exp);
+
     return phong;
 }
 
@@ -116,13 +119,13 @@ float Phong(float ks, float exp, float3 l, float3 v, float3 n)
 // -----------------------------------------------------
 float4 PS_Phong(VS_OUTPUT input, SamplerState state) : SV_TARGET
 {
-    const float     observedArea = saturate(dot(input.Normal, -gLightDirection));
     const float4    lambert = Lambert(1.f, gDiffuseMap.Sample(state, input.UV));
     const float     specularExp = gShininess * gGlossinessMap.Sample(state, input.UV).r;
     const float3    viewDirection = normalize(input.WorldPosition.xyz - gViewInverse[3].xyz);
     const float4    specular = gSpecularMap.Sample(state, input.UV) * Phong(1.0f, specularExp, -gLightDirection, viewDirection, input.Normal);
+    const float     observedArea = max(dot(input.Normal, gLightDirection), 1.0f);
 
-    return gLightIntensity * observedArea * lambert + specular;
+    return (lambert + specular) * observedArea * gLightIntensity;
 }
 
 float4 PS_POINT(VS_OUTPUT input) : SV_TARGET
