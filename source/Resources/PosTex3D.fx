@@ -10,10 +10,10 @@ float4x4 gWorldViewProj  : WorldViewProjection;
 float4x4 gWorldMatrix    : World;
 float4x4 gViewInverse    : ViewInverse;
 
-float gPI = 3.141592653f;
-float3 gLightDirection = normalize(float3(0.577f, -0.577f, 0.577f));
-float gLightIntensity = 7.0f;
-float gShininess = 25.0f;
+float   gPI = 3.141592653589793f;
+float3  gLightDirection = float3(0.577f, -0.577f, 0.577f);
+float   gLightIntensity = 7.0f;
+float   gShininess = 25.0f;
 
 SamplerState samPoint : SampleState
 {
@@ -46,7 +46,6 @@ RasterizerState gRasterizerState
 BlendState gBlendState
 {
     BlendEnable[0] = false;
-    RenderTargetWriteMask[0] = 0x0F;
 };
 
 DepthStencilState gDepthStencilState
@@ -84,11 +83,12 @@ struct VS_OUTPUT
 // -----------------------------------------------------
 VS_OUTPUT VS(VS_INPUT input)
 {
-    VS_OUTPUT output     = (VS_OUTPUT)0;
-    output.Position      = mul(float4(input.Position, 1.0f), gWorldViewProj);
-    output.UV            = input.UV;
-    output.Tangent       = mul(normalize(input.Tangent), (float3x3)gWorldMatrix);
-    output.Normal        = mul(normalize(input.Normal),  (float3x3)gWorldMatrix);
+    VS_OUTPUT output = (VS_OUTPUT)0;
+    output.Position = mul(float4(input.Position, 1.0f), gWorldViewProj);
+    output.UV = input.UV;
+    output.Tangent = mul(normalize(input.Tangent), (float3x3)gWorldMatrix);
+    output.Normal = mul(normalize(input.Normal), (float3x3)gWorldMatrix);
+    output.WorldPosition = mul(float4(input.Position, 1.0f), gWorldMatrix);
     return output;
 }
 
@@ -113,17 +113,24 @@ float Phong(float ks, float exp, float3 l, float3 v, float3 n)
     return phong;
 }
 
+//Ween
 
 // -----------------------------------------------------
 // Pixel Shader
 // -----------------------------------------------------
 float4 PS_Phong(VS_OUTPUT input, SamplerState state) : SV_TARGET
 {
+    const float3 binormal = normalize(cross(input.Normal, input.Tangent));
+    const float4x4 tangentSpaceAxis = float4x4(float4(input.Tangent, 0.0f), float4(binormal, 0.0f), float4(input.Normal, 0.0f), float4(0.0f, 0.0f, 0.0f, 1.0f));
+    float3 sampledNormal = 2.0f * gNormalMap.Sample(state, input.UV).rgb - float3(1.0f, 1.0f, 1.0f);
+    sampledNormal = normalize(mul(float4(sampledNormal, 0.0f), tangentSpaceAxis)).rgb;
+
+    const float     observedArea = saturate(dot(sampledNormal, -gLightDirection));
+    const float3    viewDirection = normalize(input.WorldPosition.xyz - gViewInverse[3].xyz);
+
     const float4    lambert = Lambert(1.f, gDiffuseMap.Sample(state, input.UV));
     const float     specularExp = gShininess * gGlossinessMap.Sample(state, input.UV).r;
-    const float3    viewDirection = normalize(input.WorldPosition.xyz - gViewInverse[3].xyz);
     const float4    specular = gSpecularMap.Sample(state, input.UV) * Phong(1.0f, specularExp, -gLightDirection, viewDirection, input.Normal);
-    const float     observedArea = max(dot(input.Normal, gLightDirection), 1.0f);
 
     return (lambert + specular) * observedArea * gLightIntensity;
 }

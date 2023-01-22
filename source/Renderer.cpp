@@ -208,21 +208,20 @@ namespace dae
 	{
 		delete[] m_pDepthBufferPixels;
 
-		//TODO fix textures
-		//delete m_pTexture;
-		//m_pTexture = nullptr;
-		//
-		//delete m_pNormalTexture;
-		//m_pNormalTexture = nullptr;
-		//
-		//delete m_pDiffuseTexture;
-		//m_pDiffuseTexture = nullptr;
-		//
-		//delete m_pSpecularTexture;
-		//m_pSpecularTexture = nullptr;
-		//
-		//delete m_pGlossinessTexture;
-		//m_pGlossinessTexture = nullptr;
+		delete m_pTexture;
+		m_pTexture = nullptr;
+		
+		delete m_pNormalTexture;
+		m_pNormalTexture = nullptr;
+		
+		delete m_pDiffuseTexture;
+		m_pDiffuseTexture = nullptr;
+		
+		delete m_pSpecularTexture;
+		m_pSpecularTexture = nullptr;
+		
+		delete m_pGlossinessTexture;
+		m_pGlossinessTexture = nullptr;
 	}
 	void Renderer::UpdateSoftware(const Timer* pTimer)
 	{
@@ -288,7 +287,6 @@ namespace dae
 
 		for (const Vertex& v : mesh.vertices)
 		{
-			//TODO fix vertex color
 			Vertex_Out vertex_out{ Vector4{}, v.color, v.uv, v.normal, v.tangent };
 
 			vertex_out.position = worldViewProjectionMatrix.TransformPoint({ v.position, 1.0f });
@@ -523,11 +521,11 @@ namespace dae
 	{
 		if (m_IsUniformColorEnabled)
 		{
-			SDL_FillRect(m_pBackBuffer, NULL, SDL_MapRGB(m_pBackBuffer->format, (m_UniformColor.r * 100), (m_UniformColor.g * 100), (m_UniformColor.b * 100)));
+			SDL_FillRect(m_pBackBuffer, NULL, SDL_MapRGB(m_pBackBuffer->format, static_cast<Uint8>(m_UniformColor.r * 100), static_cast<Uint8>(m_UniformColor.g * 100), static_cast<Uint8>(m_UniformColor.b * 100)));
 		}
 		else
 		{
-			SDL_FillRect(m_pBackBuffer, NULL, SDL_MapRGB(m_pBackBuffer->format, (m_SoftwareColor.r * 100), (m_SoftwareColor.g * 100), (m_SoftwareColor.b * 100)));
+			SDL_FillRect(m_pBackBuffer, NULL, SDL_MapRGB(m_pBackBuffer->format, static_cast<Uint8>(m_SoftwareColor.r * 100), static_cast<Uint8>(m_SoftwareColor.g * 100), static_cast<Uint8>(m_SoftwareColor.b * 100)));
 		}
 
 	}
@@ -809,8 +807,6 @@ namespace dae
 		{
 			m_pDevice->Release();
 		}
-
-		//TODO fix hidden DXGIFactory memory leak
 	}
 	void Renderer::UpdateDirectX(const Timer* pTimer)
 	{

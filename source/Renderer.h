@@ -93,7 +93,6 @@ namespace dae
 
 		Mesh m_Mesh{};
 
-		//TODO Fix texture
 		Software_Texture* m_pTexture{};
 		Software_Texture* m_pNormalTexture{};
 		Software_Texture* m_pDiffuseTexture{};
