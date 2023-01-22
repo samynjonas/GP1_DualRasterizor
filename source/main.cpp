@@ -1,8 +1,9 @@
 #include "pch.h"
 
 #if defined(_DEBUG)
-#include "vld.h"
+	#include "vld.h"
 #endif
+
 
 #undef main
 #include "Renderer.h"
@@ -99,7 +100,7 @@ int main(int argc, char* args[])
 				}
 				else if (e.key.keysym.scancode == SDL_SCANCODE_F11)
 				{
-					pRenderer->TogglePrintFPW();
+					pRenderer->TogglePrintFPS();
 				}
 
 				break;
@@ -119,7 +120,12 @@ int main(int argc, char* args[])
 		if (printTimer >= 1.f)
 		{
 			printTimer = 0.f;
-			std::cout << "dFPS: " << pTimer->GetdFPS() << std::endl;
+
+			if (pRenderer->PrintFps())
+			{
+				std::cout << "dFPS: " << pTimer->GetdFPS() << std::endl;
+			}
+
 		}
 	}
 	pTimer->Stop();

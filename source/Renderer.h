@@ -37,8 +37,13 @@ namespace dae
 		void ToggleBoundingBoxVisualization();	//F8
 
 		void CycleCullModes();					//F9
-		void ToggleUniformClearColor() {};			//F10
-		void TogglePrintFPW() {};					//F11
+		void ToggleUniformClearColor();			//F10
+		void TogglePrintFPS();					//F11
+
+		bool PrintFps() const
+		{
+			return m_PrintFPS;
+		}
 
 	private:
 		enum class RenderingStyle
@@ -55,6 +60,15 @@ namespace dae
 
 		Camera m_Camera{};
 		bool m_Rotating{ true };
+		bool m_PrintFPS{ false };
+		bool m_IsUniformColorEnabled{ false };
+
+		void PrintInfo() const;
+
+		ColorRGB m_UniformColor{ 0.1f, 0.1f, 0.1f };
+		ColorRGB m_SoftwareColor{ 0.39f, 0.59f, 0.99f };
+		ColorRGB m_HardwareColor{ 0.39f, 0.39f ,0.39f };
+
 
 		//Software Variables -----------------------------
 		bool m_ShowDepthBuffer{ false };

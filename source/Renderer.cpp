@@ -1,9 +1,13 @@
 #include "pch.h"
 #include "Renderer.h"
 
+#define RED "\033[31m"
+#define GREEN "\033[32m"
+#define Purple "\033[35m"
+#define RESET "\033[0m"
+
 namespace dae 
 {
-
 	Renderer::Renderer(SDL_Window* pWindow) 
 		: m_pWindow(pWindow)
 	{
@@ -17,7 +21,7 @@ namespace dae
 		if (result == S_OK)
 		{
 			m_IsInitialized = true;
-			std::cout << "DirectX is initialized and ready!\n";
+			//std::cout << "DirectX is initialized and ready!\n";
 		}
 		else
 		{
@@ -33,19 +37,15 @@ namespace dae
 
 		m_pDepthBufferPixels = new float[m_Width * m_Height];
 		ResetDepthBuffer();
-
-		//TODO Fix textures
-		m_pNormalTexture		= Software_Texture::LoadFromFile("Resources/vehicle_normal.png");
-		m_pDiffuseTexture		= Software_Texture::LoadFromFile("Resources/vehicle_diffuse.png");
-		m_pSpecularTexture		= Software_Texture::LoadFromFile("Resources/vehicle_specular.png");
-		m_pGlossinessTexture	= Software_Texture::LoadFromFile("Resources/vehicle_gloss.png");
-
+		
 		//--------------------------------
 
 		m_Camera.Initialize(45.f, Vector3{ 0.f, 0.f, -50.f }, static_cast<float>(m_Width) / static_cast<float>(m_Height));
 
 		InitializeDirectXMeshes();
 		InitializeSoftwareMeshes();
+
+		PrintInfo();
 	}
 
 	Renderer::~Renderer()
@@ -79,6 +79,8 @@ namespace dae
 
 	void Renderer::EnableRotation()
 	{
+		std::cout << RED;
+
 		m_Rotating = !m_Rotating;
 		std::cout << "Rotation ";
 		if (m_Rotating)
@@ -89,10 +91,14 @@ namespace dae
 		{
 			std::cout << "Dissabled\n";
 		}
+
+		std::cout << RESET;
 	}
 	void Renderer::CycleRenderStyle()
 	{
 		m_RenderStyle = static_cast<RenderingStyle>((static_cast<int>(m_RenderStyle) + 1) % (static_cast<int>(RenderingStyle::DirectX) + 1));
+
+		std::cout << RED;
 
 		std::cout << "RenderStyle set to: ";
 		switch (m_RenderStyle)
@@ -106,18 +112,91 @@ namespace dae
 		default:
 			break;
 		}
+
+		std::cout << RESET;
 	}
 	void Renderer::CycleCullModes()
 	{
+		std::cout << RED;
+
 		for (auto& mesh : m_vecMeshes)
 		{
 			mesh->CycleCullMode();
 		}
+
+		std::cout << RESET;
+	}
+
+	void Renderer::TogglePrintFPS()
+	{
+		m_PrintFPS = !m_PrintFPS;
+		std::cout << RED << "Print fps ";
+		if (m_PrintFPS)
+		{
+			std::cout << "Enabled\n";
+		}
+		else
+		{
+			std::cout << "Dissabled\n";
+		}
+
+		std::cout << RESET; //Reset
+	}
+	void Renderer::ToggleUniformClearColor()
+	{
+		std::cout << RED;
+
+		m_IsUniformColorEnabled = !m_IsUniformColorEnabled;
+		std::cout << "Uniform color ";
+		if (m_IsUniformColorEnabled)
+		{
+			std::cout << "Enabled\n";
+		}
+		else
+		{
+			std::cout << "Dissabled\n";
+		}
+
+
+		std::cout << RESET;
+	}
+	void Renderer::PrintInfo() const
+	{
+		std::cout << RED; // set console Red
+		std::cout << "[Key Bindings - SHARED]" << '\n';
+		std::cout << '\t' << "[F1]"		<< '\t' << "Toggle Rasterizer Mode"				<< '\t' << '\t' << "(HARDWARE/SOFTWARE)"						<< '\n';
+		std::cout << '\t' << "[F2]"		<< '\t' << "Toggle Vehicle Rotation"			<< '\t' << '\t' << "(ON/OFF)"									<< '\n';
+		std::cout << '\t' << "[F9]"		<< '\t' << "Cycle CullMode"						<< '\t' << '\t' << '\t' << "(BACK/FRONT/NONE)"					<< '\n';
+		std::cout << '\t' << "[F10]"	<< '\t' << "Toggle Uniform ClearColor"			<< '\t'			<< "(ON/OFF)"									<< '\n';
+		std::cout << '\t' << "[F11]"	<< '\t' << "Toggle Print FPS"					<< '\t' << '\t' << "(OF/OFF)"									<< '\n';
+		std::cout << '\n';
+
+		std::cout << GREEN; // set console Green
+		std::cout << "[Key Bindings - HARDWARE]" << '\n';
+		std::cout << '\t' << "[F3]"		<< '\t' << "Toggle FireFX"						<< '\t' << '\t' << '\t' << "(ON/OFF)"							<< '\n';
+		std::cout << '\t' << "[F4]"		<< '\t' << "Cycle Sampler State"				<< '\t' << '\t' << "(POINT/LINEAR/ANISOTROPIC)"					<< '\n';
+		std::cout << '\n';
+
+		std::cout << Purple; // set console Purple
+		std::cout << "[Key Bindings - SOFTWARE]" << '\n';
+		std::cout << '\t' << "[F5]"		<< '\t' << "Cycle Shading Mode"					<< '\t' << '\t' << "(COMBINED/OBSERVED_AREA/DIFFUSE/SPECULAR)"	<< '\n';
+		std::cout << '\t' << "[F6]"		<< '\t' << "Toggle NormalMap"					<< '\t' << '\t' << "(ON/OFF)"									<< '\n';
+		std::cout << '\t' << "[F7]"		<< '\t' << "Toggle DepthBuffer Visual"			<< '\t'			<< "(BACK/FRONT/NONE)"							<< '\n';
+		std::cout << '\t' << "[F8]"		<< '\t' << "Toggle BoundingBox Visual"			<< '\t'			<< "(ON/OFF)"									<< '\n';
+		std::cout << '\n';
+
+		std::cout << RESET; //Reset
 	}
 
 	//Software ------------------------------------------------------------------
 	void Renderer::InitializeSoftwareMeshes()
 	{
+		m_pNormalTexture	 = Software_Texture::LoadFromFile("Resources/vehicle_normal.png");
+		m_pDiffuseTexture	 = Software_Texture::LoadFromFile("Resources/vehicle_diffuse.png");
+		m_pSpecularTexture	 = Software_Texture::LoadFromFile("Resources/vehicle_specular.png");
+		m_pGlossinessTexture = Software_Texture::LoadFromFile("Resources/vehicle_gloss.png");
+
+
 		Utils::ParseOBJ("Resources/vehicle.obj", m_Mesh.vertices, m_Mesh.indices);
 		const Vector3 position{ m_Camera.origin + Vector3{ 0.0f, 0.0f, 50.0f } };
 		const Vector3 scale{ Vector3{ 1.0f, 1.0f, 1.0f } };
@@ -156,13 +235,8 @@ namespace dae
 	void Renderer::RenderSoftware()
 	{
 		//@START
-	//Lock BackBuffer
+		//Lock BackBuffer
 		SDL_LockSurface(m_pBackBuffer);
-
-		//RenderWeek01();
-		//RenderWeek02();
-		//RenderWeek03();
-
 		VertexTransformationFunction(m_Mesh);
 
 		std::vector<Vector2> verticesScreenSpace;
@@ -447,7 +521,15 @@ namespace dae
 
 	void Renderer::ClearBackground() const
 	{
-		SDL_FillRect(m_pBackBuffer, NULL, SDL_MapRGB(m_pBackBuffer->format, 100, 100, 100));
+		if (m_IsUniformColorEnabled)
+		{
+			SDL_FillRect(m_pBackBuffer, NULL, SDL_MapRGB(m_pBackBuffer->format, (m_UniformColor.r * 100), (m_UniformColor.g * 100), (m_UniformColor.b * 100)));
+		}
+		else
+		{
+			SDL_FillRect(m_pBackBuffer, NULL, SDL_MapRGB(m_pBackBuffer->format, (m_SoftwareColor.r * 100), (m_SoftwareColor.g * 100), (m_SoftwareColor.b * 100)));
+		}
+
 	}
 	void Renderer::ResetDepthBuffer()
 	{
@@ -456,6 +538,8 @@ namespace dae
 
 	void Renderer::CycleShadingMode()
 	{
+		std::cout << GREEN;
+
 		m_LightingMode = static_cast<LightingMode>((static_cast<int>(m_LightingMode) + 1) % (static_cast<int>(LightingMode::Specular) + 1));
 		std::cout << "Shading set to: ";
 		switch (m_LightingMode)
@@ -476,10 +560,12 @@ namespace dae
 			break;
 		}
 
-
+		std::cout << RESET;
 	}
 	void Renderer::ToggleNormalMap()
 	{
+		std::cout << GREEN;
+
 		m_IsNormalMapEnabled = !m_IsNormalMapEnabled;
 		std::cout << "NormalMap ";
 		if (m_IsNormalMapEnabled)
@@ -490,9 +576,13 @@ namespace dae
 		{
 			std::cout << "Dissabled\n";
 		}
+
+		std::cout << RESET;
 	}
 	void Renderer::ToggleDepthBuffer()
 	{
+		std::cout << GREEN;
+
 		m_ShowDepthBuffer = !m_ShowDepthBuffer;
 		std::cout << "DepthBuffer ";
 		if (m_ShowDepthBuffer)
@@ -503,9 +593,13 @@ namespace dae
 		{
 			std::cout << "Dissabled\n";
 		}
+
+		std::cout << RESET;
 	}
 	void Renderer::ToggleBoundingBoxVisualization()
 	{
+		std::cout << GREEN;
+
 		m_ShowBoundingBox = !m_ShowBoundingBox;
 		std::cout << "BoundingBox ";
 		if (m_ShowBoundingBox)
@@ -516,6 +610,8 @@ namespace dae
 		{
 			std::cout << "Dissabled\n";
 		}
+
+		std::cout << RESET;
 	}
 
 	//DirectX --------------------------------------------------------------------
@@ -737,6 +833,10 @@ namespace dae
 
 		//1. CLEAR RTV & DSV
 		ColorRGB clearColor = ColorRGB{ 0.f, 0.f, 0.3f };
+		if (m_IsUniformColorEnabled)
+		{
+			clearColor = m_UniformColor;
+		}		
 		m_pDeviceContext->ClearRenderTargetView(m_pRenderTargetView, &clearColor.r);
 		m_pDeviceContext->ClearDepthStencilView(m_pDepthStencilView, D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.f, 0);
 
@@ -754,13 +854,19 @@ namespace dae
 
 	void Renderer::CycleFilteringMethods()
 	{
+		std::cout << Purple;
+
 		for (auto& mesh : m_vecMeshes)
 		{
 			mesh->CycleFilteringMethod();
 		}
+
+		std::cout << RESET;
 	}
 	void Renderer::ToggleFireFx()
 	{
+		std::cout << Purple;
+
 		m_ShowFire = !m_ShowFire;
 
 		std::cout << "Fire ";
@@ -772,5 +878,7 @@ namespace dae
 		{
 			std::cout << "Dissabled\n";
 		}
+
+		std::cout << RESET;
 	}
 }
